@@ -3,6 +3,12 @@
 #include "scene.h"
 
 #include <SDL2/SDL.h>
+#include <algorithm>
+
+
+
+namespace scene_view {
+
 
 std::pair<int, int> SceneView::to_screen(Position pos) const {
 	return {
@@ -11,12 +17,120 @@ std::pair<int, int> SceneView::to_screen(Position pos) const {
 	};
 }
 
+
 std::pair<int, int> SceneView::to_screen(Size size) const {
 	return {
 		int(size.w*camera_scale),
 		int(size.h*camera_scale)
 	};
 }
+
+
+Position SceneView::to_position(int sx, int sy) const {
+	return {
+		(float(sx) - render_w/2.0f)/camera_scale + camera_x,
+		(float(sy) - render_h/2.0f)/camera_scale + camera_y
+	};
+}
+
+
+Size SceneView::to_size(int sx, int sy) const {
+	return {
+		float(sx)/camera_scale,
+		float(sy)/camera_scale,
+	};
+}
+
+
+bool SceneView::handle_mouse_down(int sx, int sy, const Scene& scene) {
+	const auto mpos = to_position(sx, sy);
+
+	auto view = scene.registry.view<const Position, const Size>();
+	auto entity_under_mouse = std::find_if(view.begin(), view.end(), [&view, mpos] (auto entity) {
+		auto [pos, size] = view.get<const Position, const Size>(entity);
+
+		const auto extent_x = size.w/2.0f;
+		const auto extent_y = size.h/2.0f;
+
+		const auto dx = pos.x + extent_x - mpos.x;
+		const auto dy = pos.y + extent_y - mpos.y;
+
+		return std::abs(dx) <= extent_x && std::abs(dy) <= extent_y;
+	});
+
+	if (entity_under_mouse != view.end()) {
+		this->in_progress_mouse_data = InProgressMouseData {
+			sx, sy, 0, 0,
+			DragState::Stationary,
+			*entity_under_mouse
+		};
+
+		return true;
+	}
+
+	return false;
+}
+
+
+bool SceneView::handle_mouse_move(int sx, int sy, const Scene& scene) {
+	if (!this->in_progress_mouse_data) {
+		return false;
+	}
+
+	auto& [start_x, start_y, delta_x, delta_y, drag_state, entity_maybe] = *this->in_progress_mouse_data;
+
+	delta_x = (sx - start_x);
+	delta_y = (sy - start_y);
+
+	const auto travel_distance = std::abs(delta_x) + std::abs(delta_y);
+
+	if (travel_distance > 5) {
+		drag_state = DragState::Dragging;
+	} 
+
+	return true;
+}
+
+
+bool SceneView::handle_mouse_up(int sx, int sy, Scene& scene) {
+	if (!this->in_progress_mouse_data) {
+		return false;
+	}
+
+	const auto& [start_x, start_y, delta_x, delta_y, drag_state, entity_maybe] = *this->in_progress_mouse_data;
+	if (!entity_maybe) {
+		this->in_progress_mouse_data = std::nullopt;
+		return true;
+	}
+
+	const auto entity = *entity_maybe;
+
+	if (drag_state == DragState::Stationary) {
+		std::puts("Click");
+
+		// HACK - should be executed in a reactor or smth
+		if (scene.registry.has<AffectsTerrain>(entity)) {
+			scene.registry.remove<AffectsTerrain>(entity);
+		} else {
+			scene.registry.assign<AffectsTerrain>(entity);
+		}
+		
+	} else {
+		std::puts("Move");
+
+		// HACK - should be executed in a reactor or smth
+		auto [dx, dy] = to_size(delta_x, delta_y);
+		scene.registry.patch<Position>(entity, [dx, dy] (auto& pos) {
+			pos.x += dx;
+			pos.y += dy;
+		});
+	}
+
+	this->in_progress_mouse_data = std::nullopt;
+
+	return true;
+}
+
 
 void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
 	SDL_GetRendererOutputSize(renderer, &render_w, &render_h);
@@ -49,6 +163,32 @@ void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
 			screen_w, screen_h,
 		};
 
+		SDL_SetRenderDrawColor(
+			renderer,
+			int(color.r*255.0f),
+			int(color.g*255.0f),
+			int(color.b*255.0f),
+			255
+		);
+
+		SDL_RenderFillRect(renderer, &draw_rect);
+	}
+
+	// Draw dragged entity
+	if (this->in_progress_mouse_data && this->in_progress_mouse_data->focussed_entity) {
+		const auto& [start_x, start_y, delta_x, delta_y, drag_state, entity_maybe] = *this->in_progress_mouse_data;
+		auto entity = *entity_maybe;
+
+		auto [position, size, color] = scene.registry.get<Position, Size, Color>(entity);
+		auto [dx, dy] = to_size(delta_x, delta_y);
+
+		auto [screen_x, screen_y] = to_screen(Position {position.x + dx, position.y + dy});
+		auto [screen_w, screen_h] = to_screen(size);
+
+		const SDL_Rect draw_rect {
+			screen_x, screen_y,
+			screen_w, screen_h,
+		};
 
 		SDL_SetRenderDrawColor(
 			renderer,
@@ -61,3 +201,6 @@ void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
 		SDL_RenderFillRect(renderer, &draw_rect);
 	}
 }
+
+
+} // namespace scene_view

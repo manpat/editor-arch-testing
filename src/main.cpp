@@ -10,12 +10,19 @@
 #include "scene.h"
 #include "view/scene_view.h"
 
+#include "terrain.h"
+
 // https://github.com/skypjack/entt/wiki/Crash-Course:-entity-component-system
 // https://github.com/skypjack/entt/wiki/Crash-Course:-events,-signals-and-everything-in-between
 
 
 
 int main() {
+	register_component_typeinfo();
+
+	// Set stdout to use line buffering
+	std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		std::printf("SDL init failed: %s\n", SDL_GetError());
 		return 1;
@@ -41,18 +48,34 @@ int main() {
 
 	// Model
 	Scene scene {};
+	Terrain terrain {scene};
 
 	for (int i = 0; i < 10; i++) {
 		auto entity = scene.registry.create();
 		scene.registry.emplace<Position>(entity, randf(0.0f, scene.world_w), randf(0.0f, scene.world_h));
 		scene.registry.emplace<Size>(entity, 2.0f, 2.0f);
 		scene.registry.emplace<Color>(entity, randf(0.5f, 1.0f), randf(0.5f, 1.0f), randf(0.5f, 1.0f));
-		scene.registry.emplace<AffectsTerrain>(entity);
+
+		if (i&2) {
+			scene.registry.emplace<AffectsTerrain>(entity);
+		}
 	}
+
+	std::printf("Component ids: ");
+	scene.registry.visit([] (const auto component) {
+		auto display_prop = entt::resolve_type(component).prop("display"_hs);
+		if (!display_prop) {
+			std::printf("<unknown> ");
+		} else {
+			std::printf("%s ", display_prop.value().template cast<const char*>());
+		}
+
+	});
+	std::puts("");
 
 
 	// View
-	SceneView scene_view {};
+	scene_view::SceneView scene_view {};
 
 
 	bool running = true;
@@ -60,12 +83,56 @@ int main() {
 		SDL_Event e {};
 		while (SDL_PollEvent(&e)) {
 			switch (e.type) {
-				case SDL_QUIT: running = false;
+				case SDL_QUIT: running = false; break;
+				case SDL_MOUSEBUTTONDOWN: {
+					if (e.button.button != SDL_BUTTON_LEFT) {
+						break;
+					}
+
+					const auto mx = e.button.x;
+					const auto my = e.button.y;
+
+					if (scene_view.handle_mouse_down(mx, my, scene)) {
+						break;
+					}
+
+					break;
+				}
+				case SDL_MOUSEMOTION: {
+					if (e.motion.state != SDL_BUTTON_LMASK) {
+						break;
+					}
+
+					const auto mx = e.motion.x;
+					const auto my = e.motion.y;
+
+					if (scene_view.handle_mouse_move(mx, my, scene)) {
+						break;
+					}
+
+					break;
+				}
+				case SDL_MOUSEBUTTONUP: {
+					if (e.button.button != SDL_BUTTON_LEFT) {
+						break;
+					}
+
+					const auto mx = e.button.x;
+					const auto my = e.button.y;
+
+					if (scene_view.handle_mouse_up(mx, my, scene)) {
+						break;
+					}
+
+					break;
+				}
+
 				default: break;
 			}
 		}
 
 		scene.update();
+		terrain.update();
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
 		SDL_RenderClear(renderer);
