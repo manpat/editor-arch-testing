@@ -8,10 +8,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 file(GLOB source_files src/*.cpp)
 
-find_package(sdl2 CONFIG REQUIRED)
+add_subdirectory(deps/entt)
 
 
-# add the executable
 add_executable(editor ${source_files})
 
-target_link_libraries(editor PRIVATE sdl2)
+target_link_libraries(editor PRIVATE EnTT)
+
+set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>")
+set(msvc_cxx "$<COMPILE_LANG_AND_ID:CXX,MSVC>")
+
+target_compile_options(editor PRIVATE
+  "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wshadow;-Wformat=2;-Wunused>>"
+  "$<${msvc_cxx}:$<BUILD_INTERFACE:/W4;/permissive->>"
+)
