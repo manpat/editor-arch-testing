@@ -7,4 +7,5 @@ void register_component_typeinfo() {
 	entt::meta<Size>().type().prop("display"_hs, "Size");
 	entt::meta<Color>().type().prop("display"_hs, "Color");
 	entt::meta<AffectsTerrain>().type().prop("display"_hs, "AffectsTerrain");
+	entt::meta<Selected>().type().prop("display"_hs, "Selected");
 }

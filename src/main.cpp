@@ -6,11 +6,13 @@
 
 #include "common.h"
 #include "components.h"
+#include "reactor.h"
 
-#include "scene.h"
+#include "model/scene.h"
 #include "view/scene_view.h"
 
-#include "terrain.h"
+#include "model/terrain.h"
+#include "view/terrain_view.h"
 
 // https://github.com/skypjack/entt/wiki/Crash-Course:-entity-component-system
 // https://github.com/skypjack/entt/wiki/Crash-Course:-events,-signals-and-everything-in-between
@@ -47,12 +49,12 @@ int main() {
 	}
 
 	// Model
-	Scene scene {};
-	Terrain terrain {scene};
+	model::Scene scene {};
+	model::Terrain terrain {scene, 30};
 
 	for (int i = 0; i < 10; i++) {
 		auto entity = scene.registry.create();
-		scene.registry.emplace<Position>(entity, randf(0.0f, scene.world_w), randf(0.0f, scene.world_h));
+		scene.registry.emplace<Position>(entity, randf(0.0f, scene.world_size), randf(0.0f, scene.world_size));
 		scene.registry.emplace<Size>(entity, 2.0f, 2.0f);
 		scene.registry.emplace<Color>(entity, randf(0.5f, 1.0f), randf(0.5f, 1.0f), randf(0.5f, 1.0f));
 
@@ -75,7 +77,11 @@ int main() {
 
 
 	// View
-	scene_view::SceneView scene_view {};
+	view::scene::SceneView scene_view {};
+	view::terrain::TerrainView terrain_view {renderer, terrain};
+
+
+	reactor::Reactor reactor {};
 
 
 	bool running = true;
@@ -92,7 +98,7 @@ int main() {
 					const auto mx = e.button.x;
 					const auto my = e.button.y;
 
-					if (scene_view.handle_mouse_down(mx, my, scene)) {
+					if (scene_view.handle_mouse_down(mx, my, scene, reactor)) {
 						break;
 					}
 
@@ -106,7 +112,7 @@ int main() {
 					const auto mx = e.motion.x;
 					const auto my = e.motion.y;
 
-					if (scene_view.handle_mouse_move(mx, my, scene)) {
+					if (scene_view.handle_mouse_move(mx, my, scene, reactor)) {
 						break;
 					}
 
@@ -120,7 +126,7 @@ int main() {
 					const auto mx = e.button.x;
 					const auto my = e.button.y;
 
-					if (scene_view.handle_mouse_up(mx, my, scene)) {
+					if (scene_view.handle_mouse_up(mx, my, scene, reactor)) {
 						break;
 					}
 
@@ -131,13 +137,16 @@ int main() {
 			}
 		}
 
+		reactor.react(scene, terrain);
+
 		scene.update();
-		terrain.update();
+		terrain.update(scene);
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
 		SDL_RenderClear(renderer);
 
 		scene_view.render(renderer, scene);
+		terrain_view.render(renderer, terrain);
 
 		SDL_RenderPresent(renderer);
 	}

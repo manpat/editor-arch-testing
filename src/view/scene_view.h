@@ -8,9 +8,16 @@ struct SDL_Renderer;
 
 struct Position;
 struct Size;
-struct Scene;
 
-namespace scene_view {
+namespace model {
+	struct Scene;
+}
+namespace reactor {
+	struct Reactor;
+}
+
+
+namespace view::scene {
 	enum class DragState {
 		Stationary,
 		Dragging,
@@ -32,11 +39,11 @@ namespace scene_view {
 		Position to_position(int x, int y) const;
 		Size to_size(int x, int y) const;
 
-		bool handle_mouse_down(int sx, int sy, const Scene&);
-		bool handle_mouse_move(int sx, int sy, const Scene&);
-		bool handle_mouse_up(int sx, int sy, Scene&);
+		bool handle_mouse_down(int sx, int sy, const model::Scene&, reactor::Reactor&);
+		bool handle_mouse_move(int sx, int sy, const model::Scene&, reactor::Reactor&);
+		bool handle_mouse_up(int sx, int sy, const model::Scene&, reactor::Reactor&);
 
-		void render(SDL_Renderer*, const Scene&);
+		void render(SDL_Renderer*, const model::Scene&);
 
 	public:
 		float camera_x {10.0f}, camera_y {10.0f};

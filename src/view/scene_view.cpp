@@ -1,13 +1,14 @@
 #include "view/scene_view.h"
 #include "components.h"
-#include "scene.h"
+#include "reactor.h"
+#include "model/scene.h"
 
 #include <SDL2/SDL.h>
 #include <algorithm>
 
 
 
-namespace scene_view {
+namespace view::scene {
 
 
 std::pair<int, int> SceneView::to_screen(Position pos) const {
@@ -42,7 +43,7 @@ Size SceneView::to_size(int sx, int sy) const {
 }
 
 
-bool SceneView::handle_mouse_down(int sx, int sy, const Scene& scene) {
+bool SceneView::handle_mouse_down(int sx, int sy, const model::Scene& scene, reactor::Reactor&) {
 	const auto mpos = to_position(sx, sy);
 
 	auto view = scene.registry.view<const Position, const Size>();
@@ -72,7 +73,7 @@ bool SceneView::handle_mouse_down(int sx, int sy, const Scene& scene) {
 }
 
 
-bool SceneView::handle_mouse_move(int sx, int sy, const Scene& scene) {
+bool SceneView::handle_mouse_move(int sx, int sy, const model::Scene& scene, reactor::Reactor& reactor) {
 	if (!this->in_progress_mouse_data) {
 		return false;
 	}
@@ -86,13 +87,17 @@ bool SceneView::handle_mouse_move(int sx, int sy, const Scene& scene) {
 
 	if (travel_distance > 5) {
 		drag_state = DragState::Dragging;
+
+		if (entity_maybe && !scene.registry.has<Selected>(*entity_maybe)) {
+			reactor.queue(reactor::SelectEntity {*entity_maybe});
+		}
 	} 
 
 	return true;
 }
 
 
-bool SceneView::handle_mouse_up(int sx, int sy, Scene& scene) {
+bool SceneView::handle_mouse_up(int sx, int sy, const model::Scene& scene, reactor::Reactor& reactor) {
 	if (!this->in_progress_mouse_data) {
 		return false;
 	}
@@ -106,24 +111,14 @@ bool SceneView::handle_mouse_up(int sx, int sy, Scene& scene) {
 	const auto entity = *entity_maybe;
 
 	if (drag_state == DragState::Stationary) {
-		std::puts("Click");
-
-		// HACK - should be executed in a reactor or smth
-		if (scene.registry.has<AffectsTerrain>(entity)) {
-			scene.registry.remove<AffectsTerrain>(entity);
-		} else {
-			scene.registry.assign<AffectsTerrain>(entity);
-		}
+		reactor.queue(reactor::SelectEntity {entity});
 		
 	} else {
-		std::puts("Move");
-
-		// HACK - should be executed in a reactor or smth
 		auto [dx, dy] = to_size(delta_x, delta_y);
-		scene.registry.patch<Position>(entity, [dx, dy] (auto& pos) {
-			pos.x += dx;
-			pos.y += dy;
-		});
+		const auto old_pos = scene.registry.get<Position>(entity);
+		const Position new_pos { old_pos.x + dx, old_pos.y + dy };
+
+		reactor.queue(reactor::MoveEntity {entity, old_pos, new_pos});
 	}
 
 	this->in_progress_mouse_data = std::nullopt;
@@ -132,7 +127,7 @@ bool SceneView::handle_mouse_up(int sx, int sy, Scene& scene) {
 }
 
 
-void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
+void SceneView::render(SDL_Renderer* renderer, const model::Scene& scene) {
 	SDL_GetRendererOutputSize(renderer, &render_w, &render_h);
 
 	// Draw scene background
@@ -140,7 +135,7 @@ void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
 		SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
 
 		auto [screen_x, screen_y] = to_screen(Position {0.0f, 0.0f});
-		auto [screen_w, screen_h] = to_screen(Size {scene.world_w, scene.world_h});
+		auto [screen_w, screen_h] = to_screen(Size {scene.world_size, scene.world_size});
 
 		const SDL_Rect draw_rect {
 			screen_x, screen_y,
@@ -157,6 +152,17 @@ void SceneView::render(SDL_Renderer* renderer, const Scene& scene) {
 
 		auto [screen_x, screen_y] = to_screen(position);
 		auto [screen_w, screen_h] = to_screen(size);
+
+		// Draw selection
+		if (scene.registry.has<Selected>(entity)) {
+			const SDL_Rect draw_rect {
+				screen_x-2, screen_y-2,
+				screen_w+4, screen_h+4,
+			};
+
+			SDL_SetRenderDrawColor(renderer, 230, 30, 30, 255);
+			SDL_RenderFillRect(renderer, &draw_rect);
+		}
 
 		const SDL_Rect draw_rect {
 			screen_x, screen_y,
