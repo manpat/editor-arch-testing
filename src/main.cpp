@@ -14,6 +14,8 @@
 #include "model/terrain.h"
 #include "view/terrain_view.h"
 
+#include "view/entity_list.h"
+
 // https://github.com/skypjack/entt/wiki/Crash-Course:-entity-component-system
 // https://github.com/skypjack/entt/wiki/Crash-Course:-events,-signals-and-everything-in-between
 
@@ -56,7 +58,7 @@ int main() {
 		auto entity = scene.registry.create();
 		scene.registry.emplace<Position>(entity, randf(0.0f, scene.world_size), randf(0.0f, scene.world_size));
 		scene.registry.emplace<Size>(entity, 2.0f, 2.0f);
-		scene.registry.emplace<Color>(entity, randf(0.5f, 1.0f), randf(0.5f, 1.0f), randf(0.5f, 1.0f));
+		scene.registry.emplace<Color>(entity, randf(0.3f, 1.0f), randf(0.3f, 1.0f), randf(0.3f, 1.0f));
 
 		if (i&2) {
 			scene.registry.emplace<AffectsTerrain>(entity);
@@ -79,7 +81,7 @@ int main() {
 	// View
 	view::scene::SceneView scene_view {};
 	view::terrain::TerrainView terrain_view {renderer, terrain};
-
+	view::entity_list::EntityList entity_list {};
 
 	reactor::Reactor reactor {};
 
@@ -97,6 +99,10 @@ int main() {
 
 					const auto mx = e.button.x;
 					const auto my = e.button.y;
+
+					if (entity_list.handle_mouse_down(mx, my, scene, reactor)) {
+						break;
+					}
 
 					if (scene_view.handle_mouse_down(mx, my, scene, reactor)) {
 						break;
@@ -147,6 +153,7 @@ int main() {
 
 		scene_view.render(renderer, scene);
 		terrain_view.render(renderer, terrain);
+		entity_list.render(renderer, scene);
 
 		SDL_RenderPresent(renderer);
 	}

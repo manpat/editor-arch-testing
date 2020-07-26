@@ -128,7 +128,7 @@ bool SceneView::handle_mouse_up(int sx, int sy, const model::Scene& scene, react
 
 
 void SceneView::render(SDL_Renderer* renderer, const model::Scene& scene) {
-	SDL_GetRendererOutputSize(renderer, &render_w, &render_h);
+	SDL_GetRendererOutputSize(renderer, &this->render_w, &this->render_h);
 
 	// Draw scene background
 	{
