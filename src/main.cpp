@@ -51,10 +51,10 @@ int main() {
 	}
 
 	// Model
-	model::Scene scene {};
-	model::Terrain terrain {scene, 30};
+	model::Scene scene {20.0f};
+	model::Terrain terrain {scene, 10};
 
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < 25; i++) {
 		auto entity = scene.registry.create();
 		scene.registry.emplace<Position>(entity, randf(0.0f, scene.world_size), randf(0.0f, scene.world_size));
 		scene.registry.emplace<Size>(entity, 2.0f, 2.0f);

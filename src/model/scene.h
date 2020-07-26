@@ -4,8 +4,10 @@
 
 namespace model {
 	struct Scene {
+		Scene(float world_size);
+
 		entt::registry registry {};
-		float world_size {20.0f};
+		float world_size {};
 
 		void update();
 	};

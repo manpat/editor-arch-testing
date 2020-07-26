@@ -6,19 +6,25 @@
 
 namespace view::entity_list {
 
-const int ENTRY_WIDTH = 100;
-const int ENTRY_HEIGHT = 20;
+const int ENTRY_SIZE = 50;
+const int ENTRY_COLS = 4;
+const int PANEL_WIDTH = ENTRY_SIZE * ENTRY_COLS;
 const int SELECTION_WIDTH = 5;
 
 
 bool EntityList::handle_mouse_down(int sx, int sy, const model::Scene& scene, reactor::Reactor& reactor) {
 	auto view = scene.registry.view<const Color>();
 
-	if (sy > view.size() * ENTRY_HEIGHT) { return false; }
-	if (sx < this->render_w - ENTRY_WIDTH) { return false; }
+	if (sy > int(view.size()+ENTRY_COLS-1)/ENTRY_COLS * ENTRY_SIZE) { return false; }
+	if (sx < this->render_w - PANEL_WIDTH) { return false; }
 
-	// HACK: all of this should be made persistent anyway
-	const auto ent = view.begin() + sy / ENTRY_HEIGHT;
+	// HACK: all of this should be made persistent
+	const auto index = sy/ENTRY_SIZE*ENTRY_COLS + (PANEL_WIDTH - (this->render_w - sx))/ENTRY_SIZE;
+	if (index >= int(view.size())) {
+		return false;
+	}
+
+	const auto ent = view.begin() + index;
 	reactor.queue(reactor::SelectEntity {*ent});
 	return true;
 }
@@ -35,8 +41,8 @@ void EntityList::render(SDL_Renderer* renderer, const model::Scene& scene) {
 		const bool selected = scene.registry.has<Selected>(entity);
 
 		const SDL_Rect draw_rect {
-			this->render_w - ENTRY_WIDTH, index * ENTRY_HEIGHT,
-			ENTRY_WIDTH, ENTRY_HEIGHT,
+			this->render_w - PANEL_WIDTH + (index%ENTRY_COLS)*ENTRY_SIZE, index/ENTRY_COLS * ENTRY_SIZE,
+			ENTRY_SIZE, ENTRY_SIZE,
 		};
 
 		SDL_SetRenderDrawColor(
@@ -51,8 +57,8 @@ void EntityList::render(SDL_Renderer* renderer, const model::Scene& scene) {
 
 		if (selected) {
 			const SDL_Rect draw_rect {
-				this->render_w - ENTRY_WIDTH, index * ENTRY_HEIGHT,
-				SELECTION_WIDTH, ENTRY_HEIGHT,
+				this->render_w - PANEL_WIDTH + (index%ENTRY_COLS)*ENTRY_SIZE, index/ENTRY_COLS * ENTRY_SIZE,
+				SELECTION_WIDTH, ENTRY_SIZE,
 			};
 
 			SDL_SetRenderDrawColor(renderer, 230, 30, 30, 255);

@@ -3,6 +3,13 @@
 
 namespace model {
 
+
+Scene::Scene(float size)
+	: world_size {size}
+{
+}
+
+
 void Scene::update() {
 	// Wrap around scene
 	registry.view<Position, const Size>().each(
